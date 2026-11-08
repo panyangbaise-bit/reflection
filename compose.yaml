@@ -1,0 +1,27 @@
+name: portfolio-agent-backend
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: portfolio
+      POSTGRES_PASSWORD: local-owner-only
+    ports: ["127.0.0.1:55432:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./deploy/init-local.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d portfolio"]
+      interval: 3s
+      retries: 20
+  cache:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:56379:6379"]
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+  broker:
+    image: redis:7.4-alpine
+    ports: ["127.0.0.1:56380:6379"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes: ["broker-data:/data"]
+volumes:
+  postgres-data:
+  broker-data:

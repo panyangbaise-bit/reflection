@@ -1,0 +1,76 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #f5f7fa;
+  color: #1f2329;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px 24px 48px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.page-head h1 {
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.pa-muted {
+  color: #697386;
+  font-size: 0.85rem;
+}
+
+.json-pre {
+  background: #f7f8fa;
+  border: 1px solid #e5e8ef;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 420px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+
+.tl-track {
+  position: relative;
+  height: 12px;
+  background: #e9edf3;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tl-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 6px;
+  min-width: 2px;
+}
+
+.row-selected td {
+  background-color: #eef4ff !important;
+}
+
+.clickable-row {
+  cursor: pointer;
+}

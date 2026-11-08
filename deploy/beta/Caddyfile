@@ -1,0 +1,31 @@
+{$BETA_DOMAIN} {
+    encode gzip
+    request_body {
+        max_size 1MB
+    }
+    @mobile path /api/mobile/v1/* /health/live /health/ready
+    handle @mobile {
+        reverse_proxy api:8000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+
+# 管理后台：Vue3 静态前端（挂载在 edge 容器 /srv/admin-web，见 compose.yaml）。
+# 前端为 hash 路由，try_files 只需提供 /index.html；Admin API 由 Caddy 反代到 api:8000。
+{$ADMIN_DOMAIN} {
+    encode gzip
+    request_body {
+        max_size 1MB
+    }
+    @adminapi path /api/admin/v1/*
+    handle @adminapi {
+        reverse_proxy api:8000
+    }
+    handle {
+        root * /srv/admin-web
+        try_files {path} /index.html
+        file_server
+    }
+}

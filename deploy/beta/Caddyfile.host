@@ -1,0 +1,37 @@
+# Import this fragment from an existing host Caddy installation.
+# Do not start the Compose edge service when the host owns ports 80/443.
+# Replace api.example.com / admin.example.com / ops.example.com with your own
+# DNS names (A records pointing at the host, no CDN proxy, no AAAA records
+# until you verify IPv6 reaches the host).
+api.example.com {
+    encode gzip
+    request_body {
+        max_size 1MB
+    }
+    @mobile path /api/mobile/v1/* /health/live /health/ready
+    handle @mobile {
+        reverse_proxy 127.0.0.1:18000
+    }
+    handle {
+        respond "Not found" 404
+    }
+}
+
+admin.example.com, ops.example.com {
+    encode gzip
+    request_body {
+        max_size 1MB
+    }
+    # Host-Caddy mode: put the built admin-web/dist on the host as /srv/admin-web
+    # (e.g. scp -r admin-web/dist root@<server>:/srv/admin-web) and proxy the
+    # Admin API to the compose-published port.
+    @adminapi path /api/admin/v1/*
+    handle @adminapi {
+        reverse_proxy 127.0.0.1:18000
+    }
+    handle {
+        root * /srv/admin-web
+        try_files {path} /index.html
+        file_server
+    }
+}

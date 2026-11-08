@@ -1,0 +1,56 @@
+[project]
+name = "portfolio-agent-backend"
+version = "0.1.0"
+description = "Private, iOS-first Portfolio Agent service"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "uvicorn[standard]>=0.34,<1",
+  "sqlalchemy>=2.0.38,<2.1",
+  "psycopg[binary]>=3.2,<4",
+  "alembic>=1.14,<2",
+  "pydantic-settings>=2.7,<3",
+  "httpx[http2]>=0.28,<1",
+  "PyJWT[crypto]>=2.10,<3",
+  "celery[redis]>=5.5,<6",
+  "redis>=5.2,<7",
+  "langchain-core>=1,<2",
+  "langgraph>=1,<2",
+  "alibabacloud-dysmsapi20170525>=4,<5",
+  "alibabacloud-dypnsapi20170525>=2,<3",
+]
+
+[project.optional-dependencies]
+market-data = [
+    "akshare>=1.19.3,<2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "pytest-cov>=6,<8", "ruff>=0.11,<1", "locust>=2.33,<3"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/portfolio_backend"]
+
+[project.scripts]
+portfolio-api = "portfolio_backend.api:main"
+portfolio-scheduler = "portfolio_backend.scheduler:main"
+portfolio-dispatcher = "portfolio_backend.worker:dispatch_main"
+portfolio-data = "portfolio_backend.collector:main"
+portfolio-catalog = "portfolio_backend.services.catalog:main"
+portfolio-seed = "portfolio_backend.seed:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = ["integration: requires PostgreSQL and Redis"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

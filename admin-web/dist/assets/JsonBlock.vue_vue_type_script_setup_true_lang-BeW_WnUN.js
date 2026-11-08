@@ -1,0 +1,1 @@
+import{q as t}from"./format-CWNpOu3d.js";import{l as a,e as n,Y as c,c as r,a as p}from"./vue-vendor-0GfI389Y.js";const l={class:"json-pre"},f=a({__name:"JsonBlock",props:{value:{}},setup(e){const o=e,s=r(()=>t(o.value));return(m,_)=>(p(),n("pre",l,c(s.value),1))}});export{f as _};

@@ -1,0 +1,134 @@
+name: portfolio-beta
+
+x-common: &common
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "5m", max-file: "2"}
+
+x-app: &app
+  <<: *common
+  image: portfolio-agent-backend:beta
+  build: {context: ../..}
+  env_file: [../../secrets/beta/runtime.env]
+  init: true
+  read_only: true
+  tmpfs: ["/tmp:size=64m,mode=1777"]
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  depends_on:
+    postgres: {condition: service_healthy}
+    cache: {condition: service_healthy}
+    auth-cache: {condition: service_healthy}
+    broker: {condition: service_healthy}
+
+services:
+  postgres:
+    <<: *common
+    image: postgres:17-alpine
+    env_file: [../../secrets/beta/postgres.env]
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=40, -c, work_mem=2MB]
+    mem_limit: 256m
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/01-roles.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U postgres -d portfolio"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+  cache:
+    <<: *common
+    image: redis:7.4-alpine
+    command: [redis-server, --maxmemory, 32mb, --maxmemory-policy, allkeys-lru, --save, ""]
+    mem_limit: 64m
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  auth-cache:
+    <<: *common
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, "yes", --appendfsync, always, --maxmemory, 32mb, --maxmemory-policy, noeviction]
+    mem_limit: 64m
+    volumes: [auth-cache-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  broker:
+    <<: *common
+    image: redis:7.4-alpine
+    command: [redis-server, --appendonly, "yes", --maxmemory, 48mb, --maxmemory-policy, noeviction]
+    mem_limit: 96m
+    volumes: [broker-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  migrate:
+    <<: *app
+    profiles: [tools]
+    restart: "no"
+    env_file: [../../secrets/beta/runtime.env, ../../secrets/beta/migration.env]
+    command: [alembic, upgrade, head]
+    mem_limit: 192m
+  api:
+    <<: *app
+    command: [uvicorn, "portfolio_backend.api:create_app", --factory, --host, "0.0.0.0", --port, "8000", --workers, "1", --no-access-log, --proxy-headers, --forwarded-allow-ips, "*"]
+    ports: ["127.0.0.1:18000:8000"]
+    mem_limit: 384m
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+  worker:
+    <<: *app
+    command: [celery, -A, "portfolio_backend.worker:celery", worker, -Q, "interactive_ai,privacy", "--concurrency=${PA_WORKER_CONCURRENCY:-2}", --loglevel=WARNING, --without-gossip, --without-mingle]
+    mem_limit: 384m
+  worker-reports:
+    <<: *app
+    # Plan A: fact batches + AI summary batches; long-lived jobs use their own
+    # wall-clock budget, so this pool is separate from interactive answers.
+    command: [celery, -A, "portfolio_backend.worker:celery", worker, -Q, "reports,daily_reports,weekly_reports", "--concurrency=${PA_REPORT_WORKER_CONCURRENCY:-2}", --loglevel=WARNING, --without-gossip, --without-mingle]
+    mem_limit: 512m
+  dispatcher:
+    <<: *app
+    command: [portfolio-dispatcher]
+    mem_limit: 96m
+  scheduler:
+    <<: *app
+    command: [portfolio-scheduler]
+    mem_limit: 96m
+  collector:
+    <<: *app
+    profiles: [data]
+    command: [portfolio-data]
+    mem_limit: 512m
+  edge:
+    <<: *common
+    image: caddy:2-alpine
+    environment:
+      BETA_DOMAIN: ${BETA_DOMAIN:?Run prepare.py first}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:?Run prepare.py first}
+    ports: ["80:80", "443:443"]
+    mem_limit: 96m
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Vue3 管理后台构建产物（admin-web/dist），替代原 Streamlit admin 容器。
+      - ../../admin-web/dist:/srv/admin-web:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api: {condition: service_healthy}
+
+volumes:
+  postgres-data:
+  broker-data:
+  auth-cache-data:
+  caddy-data:
+  caddy-config:
